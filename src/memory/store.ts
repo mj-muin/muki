@@ -5,6 +5,7 @@
 import Database from 'better-sqlite3';
 import { Memory, MemorySearchOptions, MemorySearchResult } from '../types';
 import { VectorDB } from '../db/vector';
+import * as sqliteVec from 'sqlite-vec';
 
 export class MemoryStore {
   private db: Database.Database;
@@ -13,6 +14,15 @@ export class MemoryStore {
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
+    
+    // Load sqlite-vec extension
+    try {
+      sqliteVec.load(this.db);
+    } catch (err) {
+      console.error('Failed to load sqlite-vec extension:', err);
+      throw err;
+    }
+    
     this.vectorDB = new VectorDB(this.db);
   }
 
@@ -34,7 +44,7 @@ export class MemoryStore {
       memory.metadata ? JSON.stringify(memory.metadata) : null
     );
 
-    const memoryId = info.lastInsertRowid as number;
+    const memoryId = Number(info.lastInsertRowid);
     this.vectorDB.insert(memoryId, memory.embedding);
 
     return memoryId;

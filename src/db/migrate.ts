@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import { INIT_SCHEMA } from './schema';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as sqliteVec from 'sqlite-vec';
 
 const DEFAULT_DB_PATH = path.join(process.env.HOME || '.', '.muki', 'muki.db');
 
@@ -24,7 +25,7 @@ function migrate(dbPath: string = DEFAULT_DB_PATH): void {
   try {
     // Load sqlite-vec extension
     try {
-      db.loadExtension('vec0');
+      sqliteVec.load(db);
       console.log('✓ sqlite-vec extension loaded');
     } catch (err) {
       console.error('✗ Failed to load sqlite-vec extension');

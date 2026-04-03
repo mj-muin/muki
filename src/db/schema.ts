@@ -24,8 +24,12 @@ CREATE INDEX IF NOT EXISTS idx_expires_at ON memories(expires_at);
 
 export const CREATE_VEC_TABLE = `
 CREATE VIRTUAL TABLE IF NOT EXISTS vec_index USING vec0(
-  memory_id INTEGER PRIMARY KEY,
   embedding FLOAT[1536]
+);
+
+CREATE TABLE IF NOT EXISTS vec_memory_map (
+  vec_rowid INTEGER PRIMARY KEY,
+  memory_id INTEGER UNIQUE NOT NULL
 );
 `;
 

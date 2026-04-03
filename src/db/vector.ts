@@ -17,14 +17,17 @@ export class VectorDB {
   }
 
   /**
-   * Insert vector into vec_index
+   * Insert vector and create mapping to memory_id
    */
   insert(memoryId: number, embedding: Float32Array): void {
-    const stmt = this.db.prepare(`
-      INSERT INTO vec_index (memory_id, embedding)
-      VALUES (?, ?)
-    `);
-    stmt.run(memoryId, Buffer.from(embedding.buffer));
+    // Insert into vec_index (rowid auto-generated)
+    const stmt = this.db.prepare('INSERT INTO vec_index (embedding) VALUES (?)');
+    const info = stmt.run(Buffer.from(embedding.buffer));
+    const vecRowid = Number(info.lastInsertRowid);
+    
+    // Create mapping
+    const mapStmt = this.db.prepare('INSERT INTO vec_memory_map (vec_rowid, memory_id) VALUES (?, ?)');
+    mapStmt.run(vecRowid, memoryId);
   }
 
   /**
@@ -32,8 +35,9 @@ export class VectorDB {
    */
   search(queryEmbedding: Float32Array, limit: number = 10): VectorSearchResult[] {
     const stmt = this.db.prepare(`
-      SELECT memory_id, vec_distance_cosine(embedding, ?) as distance
-      FROM vec_index
+      SELECT m.memory_id, vec_distance_cosine(v.embedding, ?) as distance
+      FROM vec_index v
+      JOIN vec_memory_map m ON v.rowid = m.vec_rowid
       ORDER BY distance ASC
       LIMIT ?
     `);
@@ -46,8 +50,13 @@ export class VectorDB {
    * Delete vector by memory_id
    */
   delete(memoryId: number): void {
-    const stmt = this.db.prepare('DELETE FROM vec_index WHERE memory_id = ?');
-    stmt.run(memoryId);
+    // Find vec_rowid from mapping
+    const mapRow = this.db.prepare('SELECT vec_rowid FROM vec_memory_map WHERE memory_id = ?').get(memoryId) as any;
+    if (!mapRow) return;
+    
+    // Delete from vec_index and mapping
+    this.db.prepare('DELETE FROM vec_index WHERE rowid = ?').run(mapRow.vec_rowid);
+    this.db.prepare('DELETE FROM vec_memory_map WHERE memory_id = ?').run(memoryId);
   }
 
   /**
